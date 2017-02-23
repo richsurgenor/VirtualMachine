@@ -36,36 +36,36 @@ VirtualMachine::VirtualMachine()
 
 void VirtualMachine::load_file_into_memory(char* filename)
 {
-	char *memblock;
-	//uint8_t lsb, msb;
+	char *filemem;
+	uint16_t *mem;
 
 	streampos size;
 	ifstream bin(filename, ios::in | ios::binary | ios::ate);
 	if (bin.is_open()) {
-
 		size = bin.tellg();
-		memblock = new char[size];
+		filemem = new char[size];
+		mem = new uint16_t[size / 2];
 		bin.seekg(0, ios::beg);
-		bin.read(memblock, size);
+		bin.read(filemem, size);
 		bin.close();
 	}
 	else {
 		cout << "could not find file";
 	}
 
-	cout << size << endl;
-	cout << "Address of memblock: " << &memblock << endl;
-	for (int i = 0; i < size; i++) {
+	//cout << size << endl;
+	cout << "Address of memblock: " << &filemem << endl;
+	int memcount = 0;
+	for (int i = 0; i < (int) size; i++) {
 		uint8_t lsb, msb;
-		uint16_t num;
-		msb = memblock[i];
-		//cout << lsb << endl;
-		lsb = memblock[++i];
-		num = (lsb << 8) + msb;
-		//cout << num << endl;
+	    msb = filemem[i];
+		lsb = filemem[++i];
+		mem[memcount] = (lsb << 8) + msb;
+		memcount++;
 	}
-	//cout << (int)memblock[0] << endl;
-	//cout << (int)memblock[1] << endl;
-	//cout << (int)memblock
+
+	for (int i = 0; i < ((int) size / 2); i++) {
+		cout << +mem[i] << endl;
+	}
 
 }
