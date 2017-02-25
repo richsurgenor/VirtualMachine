@@ -16,12 +16,22 @@ class VirtualMachine {
 	std::stack<uint16_t> &stack{*new std::stack<uint16_t>()};
 	char *filemem;
 	uint16_t *mem;
-	int registers[3];
+	uint16_t registers[8]; // extra regs;
+
+	uint16_t a;
+	uint16_t b;
+	uint16_t c;
+
+	uint16_t REGISTER_CONSTANT = 32768;
+	
 
 	public:
 	//functions
 	VirtualMachine();
 	void load_file_into_memory(char*);
+	uint16_t& get_register(uint16_t);
+	uint16_t get_value(uint16_t);
+	bool is_register(uint16_t);
 	void execute_program();
 	void execute_instruction(uint16_t &);
 };
@@ -83,37 +93,128 @@ void VirtualMachine::load_file_into_memory(char* filename)
 		memcount++;
 	}
 
-	for (int i = 0; i < 50; i++) {
+	/*for (int i = 0; i < 50; i++) {
 			cout << +mem[i] << endl;
-	}
+	}*/
 }
 
 
 void VirtualMachine::execute_program()
 {
 	stack.push(0); // initialize main stack frame item
-	uint16_t cur_address = 0;
+	uint16_t cur_address = 0; // 300
 	//cout << cur_address;
 	int i = 0;
-	while (i < 400) {
+	while (i < 500) {
 		execute_instruction(cur_address);
 		i++;
 	}
 	return;
 }
 
+uint16_t& VirtualMachine::get_register(uint16_t arg)
+{
+	int index = mem[arg] - 32768;
+	if (index >= 0) {
+		return registers[index];
+	}
+	else {
+		cout << "Register index out of bounds..." << endl;
+	}
+}
+
+uint16_t VirtualMachine::get_value(uint16_t arg)
+{
+	int index = mem[arg];
+	if (index >= 0 && index <= 32767) {
+		return index;
+	}
+	else {
+		cout << "Value index invalid..." << endl;
+	}
+}
+
+// TODO add an auatomatic value function...
+
+bool VirtualMachine::is_register(uint16_t arg)
+{
+	int index = mem[arg] - 32768;
+	return index >= 0 && index <= 7;
+}
+
 void VirtualMachine::execute_instruction(uint16_t &address) // pass in address by reference
 {
-	int argument;
+	int num_args;
 	switch (+mem[address]) {
-	case 19:
-		argument = ++address;
-		cout << (char) mem[argument];
+	case 0: num_args = 0; // halt
+		while (!stack.empty()) stack.pop();
 		break;
-	case 21:
+	case 1: num_args = 2; // set
+		a = get_register(++address);
+		b = get_value(++address);
+		cout << "a was " << a;
+		a = b;
+
+		cout << " but is now " << a << endl;
 		break;
+	case 6: num_args = 1; // jmp
+		if (is_register(++address)) {
+			a = get_register(address);
+		}
+		else {
+			a = get_value(address);
+		}
+		
+		address = a;
+		return; // leave immmediately
+		break;
+	case 7: num_args = 2; // jt
+		if (is_register(++address)) {
+			a = get_register(address);
+		}
+		else {
+			a = get_value(address);
+		}
+		cout << "(1) a is " << a << endl;
+		if (a != 0) {
+			if (is_register(++address)) {
+				b = get_register(address);
+			}
+			else {
+				b = get_value(address);
+			}
+			address = b;
+		}	
+		return; // leave immediately
+		break;
+	case 8: num_args = 2; // jf
+		if (is_register(++address)) {
+			a = get_register(address);
+		}
+		else {
+			a = get_value(address);
+		}
+		cout << "(2) a is " << a << endl;
+		if (a == 0) {
+			if (is_register(++address)) {
+				b = get_register(address);
+			}
+			else {
+				b = get_value(address);
+			}
+			address = b;
+		}	
+		break;
+	case 19: // out
+		cout << (char)get_value(++address);
+		break;
+	case 21: // noop
+		break;
+	//case 32768:
+	//	register_a = mem;
 	default:
-		cout << "Instruction not defined..";
+		//cout << "Instruction not defined..";
+		break;
 	}
 	address++;
 	return;
