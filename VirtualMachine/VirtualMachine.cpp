@@ -30,6 +30,7 @@ class VirtualMachine {
 	uint16_t* b;
 	uint16_t* c;
 
+	int placeholder = 0;
 
 	public:
 	//functions
@@ -107,12 +108,13 @@ void VirtualMachine::load_file_into_memory(char* filename)
 
 void VirtualMachine::execute_program()
 {
-	stack.push(0); // initialize main stack frame item
+	//stack.push(0); // initialize main stack frame item
 	uint16_t cur_address = 0; // 300
 	//cout << cur_address;
 	int i = 0;
-	while (i < 500) {
+	while (i < 1000) {
 		execute_instruction(cur_address);
+		//if (i < 400) cout << "i = " << i << endl;
 		i++;
 	}
 	return;
@@ -145,12 +147,12 @@ uint16_t* VirtualMachine::get_register(uint16_t arg)
 uint16_t VirtualMachine::get_value(uint16_t arg)
 {
 	int index = mem[arg];
-	if (index >= 0 && index <= 32767) {
+	//if (index >= 0 && index <= 32767) {
 		return index;
-	}
-	else {
-		cout << "Value index invalid..." << endl;
-	}
+	//}
+	//else {
+	//	cout << "Value index invalid..." << endl;
+	//}
 }
 
 // TODO add an auatomatic value function...
@@ -158,7 +160,7 @@ uint16_t VirtualMachine::get_value(uint16_t arg)
 bool VirtualMachine::is_register(uint16_t arg)
 {
 	int index = mem[arg];
-	return index >= 32768;
+	return index > 32767;
 }
 
 /*bool VirtualMachine::contains(*std::array)
@@ -177,8 +179,10 @@ void VirtualMachine::execute_instruction(uint16_t &address) // pass in address b
 
 	switch (+mem[address]) {
 	case 0: num_args = 0; // halt
-		while (!stack.empty()) stack.pop();
+		//while (!stack.empty()) stack.pop();
+		cout << "Terminating program..." << endl;
 		break;
+
 	case 1: num_args = 2; // set
 		a = auto_value(++address);
 		b = auto_value(++address);
@@ -187,6 +191,32 @@ void VirtualMachine::execute_instruction(uint16_t &address) // pass in address b
 
 		cout << " but is now " << *a << endl;
 		break;
+	
+	case 2: // push
+		a = auto_value(++address);
+
+		stack.push(*a);
+		break;
+
+	case 3: // pop
+		// TODO add error here if stack is empty
+		a = auto_value(++address);
+
+		*a = stack.top();
+		stack.pop();
+		break;
+	case 4: // eq
+		a = auto_value(++address);
+		b = auto_value(++address);
+		c = auto_value(++address);
+
+		if (*b == *c) {
+			*a = 1;
+		} else {
+			*a = 0;
+		}
+		break;
+
 	case 5: num_args = 3; // gt
 		a = auto_value(++address);
 		b = auto_value(++address);
@@ -194,41 +224,147 @@ void VirtualMachine::execute_instruction(uint16_t &address) // pass in address b
 
 		if (*b > *c) {
 			*a = 1;
+		} else {
+			*a = 0;
 		}
 		break;
+
 	case 6: num_args = 1; // jmp
 		address = *auto_value(++address);
 		return; // leave immmediately
 		break;
+
 	case 7: num_args = 2; // jt
 		a = auto_value(++address);
 		b = auto_value(++address);
+
 		cout << "(1) a is " << *a << endl;
 		if (*a != 0) {
 			address = *b;
+			return; // leave immediately
 		}	
-		return; // leave immediately
 		break;
+
 	case 8: num_args = 2; // jf
 		a = auto_value(++address);
 		b = auto_value(++address);
+
 		cout << "(2) a is " << *a << endl;
 		if (*a == 0) {
 			address = *b;
 			return; // leave immediately
 		}	
 		break;
+
+	case 9: // add
+		a = auto_value(++address); // always register
+		b = auto_value(++address); 
+		c = auto_value(++address);
+		
+		*a = (*b + *c) % 32768;
+		cout << *b << "+" << *c << "=" << *a << endl;
+		break;
+
+	case 10: // mult
+		a = auto_value(++address);
+		b = auto_value(++address);
+		c = auto_value(++address);
+
+		*a = ((*b) * (*c) % 32768);
+		cout << *b << "*" << *c << "=" << *a << endl;
+		break;
+
+	case 11: // mod
+		a = auto_value(++address);
+		b = auto_value(++address);
+		c = auto_value(++address);
+
+		*a = *b % *c;
+		break;
+
+	case 12: // bitwise and
+		a = auto_value(++address);
+		b = auto_value(++address);
+		c = auto_value(++address);
+
+		*a = *b & *c;
+		break;
+
+	case 13: // bitwise or
+		a = auto_value(++address);
+		b = auto_value(++address);
+		c = auto_value(++address);
+
+		*a = *b | *c;
+		break;
+	
+	case 14: // bitwise inverse
+		a = auto_value(++address);
+		b = auto_value(++address);
+
+		*a = ~(*b) & ~(1<<15); // inverts the bits of b and stores in a while leaving the 16th bit alone
+		break;
+
+	case 15: // rmem
+		// read memory at address <b> and write it to <a>
+		a = auto_value(++address);
+		b = auto_value(++address); // should return value of address
+
+		*a = mem[*b]; // this could break if the address contained in b was for a register?
+		break;
+
+	case 16: // wmem
+		// writes the memory from value <b> into address <a>
+		// this actually changes the memory of the binary file we read at the beginning.. dangeorus if wrong
+		a = auto_value(++address);
+		b = auto_value(++address);
+
+		mem[*a] = *b;
+		break;
+
+	case 17: // call
+		// push next instruction to the stack, then jmp to a
+		a = auto_value(++address);
+		stack.push(++address);
+		address = *a;
+		return;
+		break;
+
+	case 18: // ret
+		// remove the top element from the stack and jump to it. empty stack = halt.
+		if (stack.size() != 0) {	
+			address = stack.top();
+			stack.pop();
+			return;
+		}
+		cout << "Program terminating" << endl;
+		break;
+		
+
 	case 19: // out
 		cout << (char)get_value(++address);
 		break;
-	case 21: // noop
+
+	case 20: // in
+		a = auto_value(++address);
+		char sample;
+		cin >> sample;
+		*a = sample;
+		//if ((char)*a == '\n') {
+
+		//}
 		break;
-	//case 32768:
-	//	register_a = mem;
+			
+	case 21: // noop
+		placeholder = 0;
+		break;
+
 	default:
-		//cout << "Instruction not defined..";
+		placeholder = 0;
+		cout << "Instruction " << +mem[address] << " not defined..";
 		break;
 	}
+
 	address++;
 	return;
 }
